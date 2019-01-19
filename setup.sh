@@ -101,30 +101,30 @@ TZONE=${TZONE:-'Europe/London'}
 
 read -p "Email address for sysadmin (e.g. j.bloggs@example.com): " EMAILADDR
 
-read -p "Desired SSH log-in port (default: 22): " SSHPORT
+read -p "SSH log-in port (default: 22): " SSHPORT
 SSHPORT=${SSHPORT:-22}
 
-read -p "New SSH log-in user name: " LOGINUSERNAME
+# read -p "New SSH log-in user name: " LOGINUSERNAME
 
-CERTLOGIN="n"
-if [[ -s /root/.ssh/authorized_keys ]]; then
-  while true; do
-    read -p "Copy /root/.ssh/authorized_keys to new user and disable SSH password log-in [Y/n]? " CERTLOGIN
-    [[ ${CERTLOGIN,,} =~ ^(y(es)?)?$ ]] && CERTLOGIN=y
-    [[ ${CERTLOGIN,,} =~ ^no?$ ]] && CERTLOGIN=n
-    [[ $CERTLOGIN =~ ^(y|n)$ ]] && break
-  done
-fi
+# CERTLOGIN="n"
+# if [[ -s /root/.ssh/authorized_keys ]]; then
+#   while true; do
+#     read -p "Copy /root/.ssh/authorized_keys to new user and disable SSH password log-in [Y/n]? " CERTLOGIN
+#     [[ ${CERTLOGIN,,} =~ ^(y(es)?)?$ ]] && CERTLOGIN=y
+#     [[ ${CERTLOGIN,,} =~ ^no?$ ]] && CERTLOGIN=n
+#     [[ $CERTLOGIN =~ ^(y|n)$ ]] && break
+#   done
+# fi
 
-while true; do
-  [[ $CERTLOGIN = "y" ]] && read -s -p "New SSH user's password (e.g. for sudo): " LOGINPASSWORD
-  [[ $CERTLOGIN != "y" ]] && read -s -p "New SSH user's log-in password (must be REALLY STRONG): " LOGINPASSWORD
-  echo
-  read -s -p "Confirm new SSH user's password: " LOGINPASSWORD2
-  echo
-  [[ "$LOGINPASSWORD" = "$LOGINPASSWORD2" ]] && break
-  echo "Passwords didn't match -- please try again"
-done
+# while true; do
+#   [[ $CERTLOGIN = "y" ]] && read -s -p "New SSH user's password (e.g. for sudo): " LOGINPASSWORD
+#   [[ $CERTLOGIN != "y" ]] && read -s -p "New SSH user's log-in password (must be REALLY STRONG): " LOGINPASSWORD
+#   echo
+#   read -s -p "Confirm new SSH user's password: " LOGINPASSWORD2
+#   echo
+#   [[ "$LOGINPASSWORD" = "$LOGINPASSWORD2" ]] && break
+#   echo "Passwords didn't match -- please try again"
+# done
 
 VPNIPPOOL="10.10.0.0/16"
 
@@ -247,6 +247,9 @@ sysctl -p
 # iOS and Mac with appropriate configuration profiles use AES_GCM_16_256/PRF_HMAC_SHA2_384/ECP_521 
 # Windows 10 uses AES_GCM_16_256/PRF_HMAC_SHA2_384/ECP_384
 
+# ike=aes256-sha1-modp1024,aes128-sha1-modp1024,3des-sha1-modp1024! # Win7 is aes256, sha-1, modp1024; iOS is aes256, sha-256, modp1024; OS X is 3DES, sha-1, modp1024
+# esp=aes256-sha256,aes256-sha1,3des-sha1! # Win 7 is aes256-sha1, iOS is aes256-sha256, OS X is 3des-shal1
+
 echo "config setup
   strictcrlpolicy=yes
   uniqueids=never
@@ -258,8 +261,8 @@ conn roadwarrior
   keyexchange=ikev2
   fragmentation=yes
   forceencaps=yes
-  ike=aes256gcm16-prfsha384-ecp521,aes256gcm16-prfsha384-ecp384!
-  esp=aes256gcm16-ecp521,aes256gcm16-ecp384!
+  ike=aes256-sha1-modp1024,aes128-sha1-modp1024,3des-sha1-modp1024!
+  esp=aes256-sha256,aes256-sha1,3des-sha1!
   dpdaction=clear
   dpddelay=900s
   rekey=no
@@ -290,16 +293,16 @@ echo
 
 # user + SSH
 
-id -u $LOGINUSERNAME &>/dev/null || adduser --disabled-password --gecos "" $LOGINUSERNAME
-echo "${LOGINUSERNAME}:${LOGINPASSWORD}" | chpasswd
-adduser ${LOGINUSERNAME} sudo
+# id -u $LOGINUSERNAME &>/dev/null || adduser --disabled-password --gecos "" $LOGINUSERNAME
+# echo "${LOGINUSERNAME}:${LOGINPASSWORD}" | chpasswd
+# adduser ${LOGINUSERNAME} sudo
 
 sed -r \
 -e "s/^#?Port 22$/Port ${SSHPORT}/" \
 -e 's/^#?LoginGraceTime (120|2m)$/LoginGraceTime 30/' \
--e 's/^#?PermitRootLogin yes$/PermitRootLogin no/' \
--e 's/^#?X11Forwarding yes$/X11Forwarding no/' \
--e 's/^#?UsePAM yes$/UsePAM no/' \
+# -e 's/^#?PermitRootLogin yes$/PermitRootLogin no/' \
+# -e 's/^#?X11Forwarding yes$/X11Forwarding no/' \
+# -e 's/^#?UsePAM yes$/UsePAM no/' \
 -i.original /etc/ssh/sshd_config
 
 grep -Fq 'jawj/IKEv2-setup' /etc/ssh/sshd_config || echo "
@@ -308,19 +311,19 @@ MaxStartups 1
 MaxAuthTries 2
 UseDNS no" >> /etc/ssh/sshd_config
 
-if [[ $CERTLOGIN = "y" ]]; then
-  mkdir -p /home/${LOGINUSERNAME}/.ssh
-  chown $LOGINUSERNAME /home/${LOGINUSERNAME}/.ssh
-  chmod 700 /home/${LOGINUSERNAME}/.ssh
+# if [[ $CERTLOGIN = "y" ]]; then
+#   mkdir -p /home/${LOGINUSERNAME}/.ssh
+#   chown $LOGINUSERNAME /home/${LOGINUSERNAME}/.ssh
+#   chmod 700 /home/${LOGINUSERNAME}/.ssh
 
-  cp /root/.ssh/authorized_keys /home/${LOGINUSERNAME}/.ssh/authorized_keys
-  chown $LOGINUSERNAME /home/${LOGINUSERNAME}/.ssh/authorized_keys
-  chmod 600 /home/${LOGINUSERNAME}/.ssh/authorized_keys
+#   cp /root/.ssh/authorized_keys /home/${LOGINUSERNAME}/.ssh/authorized_keys
+#   chown $LOGINUSERNAME /home/${LOGINUSERNAME}/.ssh/authorized_keys
+#   chmod 600 /home/${LOGINUSERNAME}/.ssh/authorized_keys
 
-  sed -r \
-  -e "s/^#?PasswordAuthentication yes$/PasswordAuthentication no/" \
-  -i.allows_pwd /etc/ssh/sshd_config
-fi
+#   sed -r \
+#   -e "s/^#?PasswordAuthentication yes$/PasswordAuthentication no/" \
+#   -i.allows_pwd /etc/ssh/sshd_config
+# fi
 
 service ssh restart
 
@@ -559,12 +562,12 @@ Add-VpnConnection -Name "${VPNHOST}" \`
   -RememberCredential
 
 Set-VpnConnectionIPsecConfiguration -ConnectionName "${VPNHOST}" \`
-  -AuthenticationTransformConstants GCMAES256 \`
-  -CipherTransformConstants GCMAES256 \`
-  -EncryptionMethod GCMAES256 \`
-  -IntegrityCheckMethod SHA384 \`
-  -DHGroup ECP384 \`
-  -PfsGroup ECP384 \`
+  -AuthenticationTransformConstants GCMAES128 \`
+  -CipherTransformConstants None \`
+  -EncryptionMethod AES128 \`
+  -IntegrityCheckMethod SHA256 \`
+  -DHGroup ECP256 \`
+  -PfsGroup None \`
   -Force
 
 # Run the following command to retain access to the local network (e.g. printers, file servers) while the VPN is connected.
